@@ -96,6 +96,11 @@ contract HopeChef is OwnableUpgradeSafe {
     event LogSetPool(uint256 indexed pid, uint256 allocPoint, IRewarder indexed rewarder);
     event LogUpdatePool(uint256 indexed pid, uint256 lastRewardTime, uint256 lpSupply, uint256 accHopePerShare);
     event LogRewardPerSecond(uint256 rewardPerSecond);
+    event LogLockedTimeAndFee(uint256 pid, uint256 lockedTime, uint256 earlyWithdrawFee);
+    event LogDevFund(address devFund);
+    event LogDevPercent(uint256 devPercent);
+    event LogReserveFund(address reserveFund);
+    event LogReservePercent(uint256 _reservePercent);
 
     modifier lock() {
         require(_locked == 0, "LOCKED");
@@ -125,7 +130,7 @@ contract HopeChef is OwnableUpgradeSafe {
         _;
     }
 
-    function initialize(address _hope, uint256 _totalRewardPerSecond, uint256 _startTime) public initializer {
+    function initialize(address _hope, uint256 _totalRewardPerSecond, uint256 _startTime) external initializer {
         OwnableUpgradeSafe.__Ownable_init();
 
         hope = _hope;
@@ -243,7 +248,7 @@ contract HopeChef is OwnableUpgradeSafe {
     }
 
     // Update the given pool's HOPE allocation point. Can only be called by the owner.
-    function set(uint256 _pid, uint256 _allocPoint, IRewarder _rewarder) public onlyOwner {
+    function set(uint256 _pid, uint256 _allocPoint, IRewarder _rewarder) external onlyOwner {
         massUpdatePools();
         PoolInfo storage pool = poolInfo[_pid];
         if (pool.isStarted) {
@@ -258,35 +263,42 @@ contract HopeChef is OwnableUpgradeSafe {
         emit LogSetPool(_pid, _allocPoint, _rewarder);
     }
 
-    function setReservePercent(uint256 _reservePercent) public onlyOwner {
+    function setReservePercent(uint256 _reservePercent) external onlyOwner {
         require(_reservePercent <= 2500, "_reservePercent is too high"); // <= 25%
         massUpdatePools();
         reservePercent = _reservePercent;
         rewardPerSecond = totalRewardPerSecond.sub(totalRewardPerSecond.mul(_reservePercent.add(devPercent)).div(10000));
+        emit LogRewardPerSecond(rewardPerSecond);
+        emit LogReservePercent(_reservePercent);
     }
 
-    function setReserveFund(address _reserveFund) public onlyOwner {
+    function setReserveFund(address _reserveFund) external onlyOwner {
         require(_reserveFund != address(0), "zero");
         reserveFund = _reserveFund;
+        emit LogReserveFund(_reserveFund);
     }
 
-    function setDevPercent(uint256 _devPercent) public onlyOwner {
+    function setDevPercent(uint256 _devPercent) external onlyOwner {
         require(_devPercent <= 2500, "_devPercent is too high"); // <= 25%
         massUpdatePools();
         devPercent = _devPercent;
         rewardPerSecond = totalRewardPerSecond.sub(totalRewardPerSecond.mul(reservePercent.add(_devPercent)).div(10000));
+        emit LogDevPercent(_devPercent);
+        emit LogRewardPerSecond(rewardPerSecond);
     }
 
-    function setDevFund(address _devFund) public onlyDev {
+    function setDevFund(address _devFund) external onlyDev {
         require(_devFund != address(0), "zero");
         devFund = _devFund;
+        emit LogDevFund(_devFund);
     }
 
-    function setPoolLockedTimeAndFee(uint256 _pid, uint256 _lockedTime, uint256 _earlyWithdrawFee) public onlyOwner {
+    function setPoolLockedTimeAndFee(uint256 _pid, uint256 _lockedTime, uint256 _earlyWithdrawFee) external onlyOwner {
         require(_lockedTime <= 30 days, "locked time is too long");
         require(_earlyWithdrawFee <= 1000, "early withdraw fee is too high"); // <=10%
         poolLockedTime[_pid] = _lockedTime;
         poolEarlyWithdrawFee[_pid] = _earlyWithdrawFee;
+        emit LogLockedTimeAndFee(_pid, _lockedTime, _earlyWithdrawFee);
     }
 
     // View function to see pending HOPEs on frontend.
